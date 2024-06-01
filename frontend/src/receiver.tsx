@@ -9,21 +9,21 @@ const Receiver = () => {
     };
 
     socket.onmessage = async (event: MessageEvent) => {
+      console.log(event.data);
       const message = JSON.parse(event.data);
       if (message.type === "create-offer") {
+        console.log("offer creatd");
         const pc = new RTCPeerConnection();
-        pc.setRemoteDescription(message.offer);
+        await pc.setRemoteDescription(message.offer);
 
         const answer = await pc.createAnswer();
-        pc.setLocalDescription(answer);
+        await pc.setLocalDescription(answer);
 
         socket.send(
-          JSON.stringify({ type: "create-ans", offer: pc.localDescription }),
+          JSON.stringify({ type: "create-answer", offer: pc.localDescription }),
         );
       }
     };
-
-    setSocket(socket);
   }, []);
   return <div>Reciver</div>;
 };

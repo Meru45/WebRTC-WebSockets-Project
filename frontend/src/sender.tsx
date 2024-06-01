@@ -23,16 +23,16 @@ const Sender = () => {
 
     const offer = await pc.createOffer();
 
-    pc.setLocalDescription(offer);
+    await pc.setLocalDescription(offer);
 
     socket?.send(
       JSON.stringify({ type: "create-offer", offer: pc.localDescription }),
     );
 
-    socket.onmessage = (event: MessageEvent) => {
+    socket.onmessage = async (event: MessageEvent) => {
       const message = JSON.parse(event.data);
       if (message.type === "create-answer") {
-        pc.setRemoteDescription(message.offer);
+        await pc.setRemoteDescription(message.offer);
       }
     };
   };

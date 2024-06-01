@@ -7,21 +7,22 @@ let senderSocket: null | WebSocket = null;
 let receiverSocket: null | WebSocket = null;
 
 wss.on("connection", (ws) => {
-  ws.on("error", console.error);
-  ws.send("Connected");
-
   ws.on("message", (data: any) => {
     //TODO: Instead of so many if and else if create switch-case
     const message = JSON.parse(data);
 
     if (message.type === "sender") {
       senderSocket = ws;
+      console.log("sender set");
     } else if (message.type === "receiver") {
       receiverSocket = ws;
+      console.log("receiver set");
     } else if (message.type === "create-offer") {
       if (ws != senderSocket) {
         return;
       }
+
+      console.log("create-offer type msg received");
 
       receiverSocket?.send(
         JSON.stringify({ type: "create-offer", offer: message.offer }),
@@ -31,6 +32,7 @@ wss.on("connection", (ws) => {
         return;
       }
 
+      console.log("create-answer type message received");
       senderSocket?.send(
         JSON.stringify({ type: "create-answer", offer: message.offer }),
       );
