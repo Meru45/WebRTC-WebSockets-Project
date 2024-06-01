@@ -29,11 +29,22 @@ const Sender = () => {
       JSON.stringify({ type: "create-offer", offer: pc.localDescription }),
     );
 
-    socket.onmessage = async (event: MessageEvent) => {
-      const message = JSON.parse(event.data);
-      if (message.type === "create-answer") {
-        await pc.setRemoteDescription(message.offer);
+    pc.onicecandidate = (event) => {
+      console.log(event);
+      if (event.candidate) {
+        socket?.send(
+          JSON.stringify({ type: "iceCandidate", candidate: event.candidate }),
+        );
       }
+
+      socket.onmessage = async (event: MessageEvent) => {
+        const message = JSON.parse(event.data);
+        if (message.type === "create-answer") {
+          await pc.setRemoteDescription(message.offer);
+        } else if (message.type === "iceCandidate") {
+          pc.addIceCandidate(message.candidate);
+        }
+      };
     };
   };
 
