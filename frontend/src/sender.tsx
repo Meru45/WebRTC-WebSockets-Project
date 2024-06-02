@@ -1,56 +1,80 @@
 import { useEffect, useState } from "react";
 
 const Sender = () => {
-  const [socket, setSocket] = useState<null | WebSocket>(null);
+  const [socket, setSocket] = useState<WebSocket | null>(null);
+  const [pc, setPC] = useState<RTCPeerConnection | null>(null);
 
   useEffect(() => {
     const socket = new WebSocket("ws://localhost:8080");
-
-    socket.onopen = () => {
-      socket.send(JSON.stringify({ type: "sender" }));
-    };
-
-    socket.onmessage = (message) => {
-      console.log("Message received", message.data);
-    };
-
     setSocket(socket);
+    socket.onopen = () => {
+      socket.send(
+        JSON.stringify({
+          type: "sender",
+        }),
+      );
+    };
   }, []);
 
-  const startSendingVideo = async () => {
-    if (!socket) return;
+  const initiateConn = async () => {
+    if (!socket) {
+      alert("Socket not found");
+      return;
+    }
+
+    socket.onmessage = async (event) => {
+      const message = JSON.parse(event.data);
+      if (message.type === "create-answer") {
+        await pc.setRemoteDescription(message.offer);
+      } else if (message.type === "iceCandidate") {
+        pc.addIceCandidate(message.candidate);
+      }
+    };
+
     const pc = new RTCPeerConnection();
-
-    const offer = await pc.createOffer();
-
-    await pc.setLocalDescription(offer);
-
-    socket?.send(
-      JSON.stringify({ type: "create-offer", offer: pc.localDescription }),
-    );
-
+    setPC(pc);
     pc.onicecandidate = (event) => {
-      console.log(event);
       if (event.candidate) {
         socket?.send(
-          JSON.stringify({ type: "iceCandidate", candidate: event.candidate }),
+          JSON.stringify({
+            type: "iceCandidate",
+            candidate: event.candidate,
+          }),
         );
       }
-
-      socket.onmessage = async (event: MessageEvent) => {
-        const message = JSON.parse(event.data);
-        if (message.type === "create-answer") {
-          await pc.setRemoteDescription(message.offer);
-        } else if (message.type === "iceCandidate") {
-          pc.addIceCandidate(message.candidate);
-        }
-      };
     };
+
+    pc.onnegotiationneeded = async () => {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      socket?.send(
+        JSON.stringify({
+          type: "create-offer",
+          offer: pc.localDescription,
+        }),
+      );
+    };
+
+    getCameraStreamAndSend(pc);
+  };
+
+  const getCameraStreamAndSend = (pc: RTCPeerConnection) => {
+    navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      video.play();
+      // this is wrong, should propogate via a component
+      document.body.appendChild(video);
+      stream.getTracks().forEach((track) => {
+        pc?.addTrack(track);
+      });
+    });
   };
 
   return (
     <div>
-      <button onClick={startSendingVideo}>Send Video</button>
+      Sender
+      <button onClick={initiateConn}> Send data </button>
     </div>
   );
 };

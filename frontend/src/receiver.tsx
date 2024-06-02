@@ -1,51 +1,50 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 const Receiver = () => {
-  const [pc, setPc] = useState<RTCPeerConnection | null>(null);
-
   useEffect(() => {
     const socket = new WebSocket("ws://localhost:8080");
-
     socket.onopen = () => {
-      socket.send(JSON.stringify({ type: "receiver" }));
+      socket.send(
+        JSON.stringify({
+          type: "receiver",
+        }),
+      );
+    };
+    startReceiving(socket);
+  }, []);
+
+  function startReceiving(socket: WebSocket) {
+    const video = document.createElement("video");
+    document.body.appendChild(video);
+
+    const pc = new RTCPeerConnection();
+    pc.ontrack = (event) => {
+      console.log("inside ontract");
+      video.srcObject = new MediaStream([event.track]);
+      video.play();
     };
 
-    socket.onmessage = async (event: MessageEvent) => {
-      console.log(event.data);
+    socket.onmessage = (event) => {
       const message = JSON.parse(event.data);
       if (message.type === "create-offer") {
-        console.log("offer creatd");
-        const pc = new RTCPeerConnection();
-        setPc(pc);
-        await pc.setRemoteDescription(message.offer);
-
-        pc.onicecandidate = (event) => {
-          console.log(event);
-          if (event.candidate) {
-            socket?.send(
+        pc.setRemoteDescription(message.offer).then(() => {
+          pc.createAnswer().then((answer) => {
+            pc.setLocalDescription(answer);
+            socket.send(
               JSON.stringify({
-                type: "iceCandidate",
-                candidate: event.candidate,
+                type: "create-answer",
+                offer: answer,
               }),
             );
-          }
-        };
-
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-
-        socket.send(
-          JSON.stringify({ type: "create-answer", offer: pc.localDescription }),
-        );
+          });
+        });
       } else if (message.type === "iceCandidate") {
-        if (!pc) {
-          return;
-        }
         pc.addIceCandidate(message.candidate);
       }
     };
-  }, []);
-  return <div>Reciver</div>;
+  }
+
+  return <div></div>;
 };
 
 export default Receiver;
